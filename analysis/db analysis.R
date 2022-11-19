@@ -125,7 +125,7 @@ beetles_max %>% filter(str_detect(species,'sp1')) %>%
   aes(x = humidity, y = actual_temp, fill = humidity)+
   geom_jitter(aes(color = humidity), size = 3, alpha = 0.8, width = 0.1) +
   geom_boxplot(outlier.shape = NA, alpha = 0.3) + 
-  labs(y = "Critical thermal maximum (CTmax)", x = "Humidity stress level (%)") +
+  labs(y = "Critical thermal maximum (CTmax)", x = "Humidity (%RH)") +
   ggtitle("Species 1 CTmax")+
   theme_classic() +
   theme(legend.position = "none") +
@@ -158,7 +158,7 @@ beetles_min %>% filter(str_detect(species,'sp1')) %>%
   aes(x = humidity, y = actual_temp, fill = humidity)+
   geom_jitter(aes(color = humidity), size = 3, alpha = 0.8, width = 0.1) +
   geom_boxplot(outlier.shape = NA, alpha = 0.3) + 
-  labs(y = "Critical thermal minimum (CTmin)", x = "Humidity stress level (%)") +
+  labs(y = "Critical thermal minimum (CTmin)", x = "Humidity (%RH)") +
   ggtitle("Species 1 CTmin")+
   theme_classic() +
   theme(legend.position = "none") +
