@@ -33,6 +33,7 @@ beetles <- rename(beetles_raw,
                   beetleID = 'number',
                   wet_weight = 'wet_body_weight(g)',
                   after_weight = 'after_body_weight(g)',
+                  water_loss = 'water_loss(g)',
                   set_temp = 'set(°C)',
                   actual_temp = 'actual(°C)',
                   bodysize_a = 'BSa(mm)',
@@ -76,12 +77,13 @@ beetles_min %>%
   theme_classic()
 
 # check for normality of predictors
-beetles_long <- pivot_longer(beetles, c(wet_weight:after_weight,bodysize_a:dry_weight), names_to = "trait")
+beetles_long <- pivot_longer(beetles, c(wet_weight:water_loss,bodysize_a:dry_weight), names_to = "trait")
 
 ggplot(beetles_long, 
   aes(x = value, fill=species, color=species))+
   geom_histogram(position = "identity") +
   facet_wrap(~ trait, scale = "free")+
+  ggtitle("Beetle traits histograms")+
   theme_classic()
 
 # again, this should look better once we have more data
