@@ -167,7 +167,7 @@ beetles_max_na %>%
   aes(x=bodysize,y=actual_temp, color=species)+
   geom_point()+
   geom_smooth(method="lm")+
-  labs(y = "Critical thermal maximum (CTmax) (\u00B0C)", x = "Body size (mm2)") +  
+  labs(y = "Critical thermal maximum (CTmax) (\u00B0C)", x = expression(Body~size~(mm^2)))+
   ggtitle("CTmax vs Body size by species and humidity treatment ")+
   scale_x_log10()+
   facet_grid(humidity~species, scale = "free")+
@@ -206,7 +206,6 @@ beetles_min %>%
   scale_x_log10()+
   facet_grid(humidity~species, scale = "free")+
   theme_classic()
-
 
 # box plot combining CTmax and CTmin for species 1
 beetles %>% filter(str_detect(species,'sp1')) %>%
