@@ -16,7 +16,6 @@ library(lmerTest) # to perform automatic backward model selection of fixed and r
 library(emmeans) # for post-hoc pairwise tests
 library(car) # to run the Anova function that calculates p values for each factor
 
-
 ############################################
 # SETUP
 ############################################
@@ -67,6 +66,52 @@ beetles$bodysize <- pi * (beetles$bodysize_a/2) * (beetles$bodysize_b/2)
 # Wing area = use formula for ellipse ?
 beetles$wingsize <- pi * (beetles$wingsize_a/2) * (beetles$wingsize_b/2)
 
+# Water loss over dry weight
+# TODO: discuss: should we make water loss 0 or higher?
+beetles$water_loss_pos <- ifelse(beetles$water_loss<=0, 0, beetles$water_loss)
+
+# TODO: subsitute wet weight for dry weight once we've measured it
+beetles$water_loss_prop <- beetles$water_loss_pos / beetles$wet_weight
+
+# check for normality of predictors
+beetles_long <- pivot_longer(beetles, c(wet_weight:water_loss,bodysize_a:dry_weight,bodysize:water_loss_prop), names_to = "trait")
+
+ggplot(beetles_long, 
+  aes(x = value, fill=species, color=species))+
+  geom_histogram(position = "identity") +
+  facet_wrap(~ trait, scale = "free")+
+  ggtitle("Beetle traits histograms")+
+  theme_classic()
+
+
+# Check histograms of individual predictors that we're interested in
+
+# body size 
+beetles %>% 
+  ggplot() +
+  aes(x=bodysize, fill=species, color=species)+
+  geom_histogram()+
+  facet_wrap(~ species, scale="free")+
+  theme_classic()
+
+# wing size 
+beetles %>% 
+  ggplot() +
+  aes(x=wingsize, fill=species, color=species)+
+  geom_histogram()+
+  facet_wrap(~ species, scale="free")+
+  theme_classic()
+
+# water loss proportion
+beetles %>% 
+  ggplot() +
+  aes(x=water_loss_prop, fill=species, color=species)+
+  geom_histogram()+
+  facet_wrap(~ species, scale="free")+
+  theme_classic()
+# TODO: maybe we should  transform water loss proportion
+
+
 ## Create CTmax and CTmin tibbles
 beetles_max <- beetles %>% filter(str_detect(metric,'CTmax'))
 beetles_min <- beetles %>% filter(str_detect(metric,'CTmin'))
@@ -87,59 +132,43 @@ beetles_min %>%
   geom_histogram()+
   theme_classic()
 
-# check for normality of predictors
-beetles_long <- pivot_longer(beetles, c(wet_weight:water_loss,bodysize_a:dry_weight,bodysize:wingsize), names_to = "trait")
 
-ggplot(beetles_long, 
-  aes(x = value, fill=species, color=species))+
-  geom_histogram(position = "identity") +
-  facet_wrap(~ trait, scale = "free")+
-  ggtitle("Beetle traits histograms")+
-  theme_classic()
-
-# again, this should look better once we have more data
-
-# check body size histogram
-beetles %>% 
-  ggplot() +
-  aes(x=bodysize, fill=species, color=species)+
-  geom_histogram()+
-  facet_wrap(~ species, scale="free")+
-  theme_classic()
-
-# check wing size histogram
-beetles %>% 
-  ggplot() +
-  aes(x=wingsize, fill=species, color=species)+
-  geom_histogram()+
-  facet_wrap(~ species, scale="free")+
-  theme_classic()
-
+# shades of blue that we can use for our three different humidity levels
+humidity_colors <- c("aliceblue", "cadetblue2", "deepskyblue4")
 
 ############################################
 # ANALYSIS
 ############################################
 
 ####################
-## Hypothesis 2 and 4: humidity and trait impact on CTmax and CTmin
+## Question 1: x
 
-# Analysis method: linear model temp ~ bodysize * humidity, with species as a random effect
+# Hypothesis 1: Beetles from the subtropics have lower CTmax and CTmin, but larger thermal tolerance range, because of higher temperature range in subtropics.
 
-# FIRST FILTER OUT THE NA (temporary as we haven't finished measruing the traits)
-# TODO: remove this line of code for the final version
-beetles_max_na<-subset(beetles_max, select = -c(dry_weight)) # first remove dry weight because they are all NA
-beetles_max_na<-na.omit(beetles_max_na) # then remove the rows with NA (haven't measured bodysize and wingsize yet)
+# Analysis method: linear model: temp ~ site, with species and humidity as random effects
 
-beetles_min_na<-subset(beetles_min, select = -c(dry_weight)) # first remove dry weight because they are all NA
-beetles_min_na<-na.omit(beetles_min_na) # then remove the rows with NA  (haven't measured bodysize and wingsize yet)
+# Awaiting data
+
+
+####################
+## Question 2: How do dung beetle thermal tolerances respond under different humidity gradients?
+
+# Hypothesis: Increasing humidity will decrease CTmax of dung beetles, because it reduces the ability of the beetles to use evapotranspiration to thermoregulate.
+
+# Analysis method: linear model
+# CTmax ~ water loss proportion * humidity  + (1|species)
+# where water loss proportion = water loss / dry body mass
+
+# CTmin ~ humidity + (1|species) ; it does not makes sense to test water loss proportion for CTmin (most of the water loss values are negative)
 
 # CTmax
-lm_max <- lmer(actual_temp~bodysize*humidity+(1|species),beetles_max_na)
+
+lm_max <- lmer(actual_temp~water_loss_prop*humidity+(1|species),beetles_max)
 summary(lm_max)
 Anova(lm_max)   # TODO: I am still not sure what the difference is between Anova (from car package) and regular anova... need to look this up
-step(lm_max) # eliminated the interaction effect and bodysize
+step(lm_max) # eliminated the interaction effect and water loss
 
-lm_max2 <- lmer(actual_temp~humidity+(1|species),beetles_max) # use full data set again
+lm_max2 <- lmer(actual_temp~humidity+(1|species),beetles_max) 
 summary(lm_max2)
 anova(lm_max2) 
 
@@ -150,15 +179,99 @@ pairs(emmeans(lm_max2, "humidity")) # 30 vs 50 and 30 vs 90significant, 50 vs 90
 beetles_max %>% filter(str_detect(species,'sp1')) %>%
   ggplot() +
   aes(x = humidity, y = actual_temp, fill = humidity)+
-  geom_jitter(aes(color = humidity), size = 3, alpha = 0.8, width = 0.1) +
-  geom_boxplot(outlier.shape = NA, alpha = 0.3) + 
+  #geom_jitter(aes(color = humidity), size = 3, alpha = 0.8, width = 0.1) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.8) + 
   labs(y = "Critical thermal maximum (CTmax) (\u00B0C)", x = "Humidity (%RH)") +
   ggtitle("Species 1 CTmax")+
   theme_classic() +
   theme(legend.position = "none") +
+  scale_fill_manual(values=humidity_colors)+
+  stat_compare_means()+
+  stat_compare_means(method="anova", aes(group = humidity))
+
   annotate("text", x = 1, y = 40, size=6, label = "a")+
   annotate("text", x = 2, y = 40, size=6, label = "b")+ 
   annotate("text", x = 3, y = 40, size=6, label = "b")
+
+# CTmin
+lm_min <- lmer(actual_temp~water_loss_prop*humidity+(1|species),beetles_min) # water loss for CTmin does not make sense...most of them are negative anyways. Ignore
+summary(lm_min)
+Anova(lm_min) # all insignificant
+step(lm_min) # gets rid of everything
+pairs(emmeans(lm_min, "humidity")) # indeed, all insignificant
+
+# box plot for species 1 only
+beetles_min %>% filter(str_detect(species,'sp1')) %>%
+  ggplot() +
+  aes(x = humidity, y = actual_temp, fill = humidity)+
+  #geom_jitter(aes(color = humidity), size = 3, alpha = 0.8, width = 0.1) +
+  geom_boxplot(outlier.shape = NA, alpha = 0.8) + 
+  labs(y = "Critical thermal minimum (CTmin) (\u00B0C)", x = "Humidity (%RH)") +
+  ggtitle("Species 1 CTmin")+
+  theme_classic() +
+  theme(legend.position = "none") +
+  scale_fill_manual(values=humidity_colors)+
+  annotate("text", x = 1, y = 2, size=6, label = "a")+
+  annotate("text", x = 2, y = 2, size=6, label = "a")+ 
+  annotate("text", x = 3, y = 2, size=6, label = "a")
+
+# box plot combining CTmax and CTmin for species 1
+beetles %>% filter(str_detect(species,'sp1')) %>%
+  ggplot() +
+  aes(x = humidity, y = actual_temp, group = treatment, fill=humidity)+
+  geom_boxplot(outlier.shape = NA, alpha = 0.8) + 
+  labs(y = "Temperature (\u00B0C)", x = "Humidity (%RH)") +
+  ggtitle("Species 1 CTmax and CTmin")+
+  theme_classic() +
+  scale_fill_manual(values=humidity_colors)+
+  scale_y_break(c(3, 32))+
+  annotate("text", x = 1, y = 40, size=6, label = "a")+
+  annotate("text", x = 2, y = 40, size=6, label = "b")+ 
+  annotate("text", x = 3, y = 40, size=6, label = "b")+
+  annotate("text", x = 1, y = 2, size=6, label = "a")+
+  annotate("text", x = 2, y = 2, size=6, label = "a")+ 
+  annotate("text", x = 3, y = 2, size=6, label = "a")
+
+
+# Water loss line plot
+# If the interaction is significant, we expect to see significantly different slopes for different humidity treatments
+
+beetles_max %>% filter(str_detect(species,'sp1')) %>%
+  arrange(water_loss_prop) %>%
+  ggplot() +
+  aes(x=water_loss_prop,y=actual_temp, color=species)+
+  geom_point()+
+  geom_smooth(method="lm")+
+  labs(y = "Critical thermal maximum (CTmax) (\u00B0C)", x = "Water loss / wet body weight") +  
+  ggtitle("CTmax vs water loss proportion by humidity")+
+  scale_x_log10()+
+  facet_grid(humidity~species, scale = "free")+
+  theme_classic()
+
+
+####################
+## Question 3: Which morphological traits have significant impact on the thermal tolerance of dung beetles?
+
+# Analysis method: linear model:
+# CTmax ~ body size + (1 | species:humidity)
+# CTmin ~ wing size + (1 | species:humidity)
+
+# FIRST FILTER OUT THE NA (temporary as we haven't finished measuring the traits)
+# TODO: remove this line of code for the final version
+beetles_max_na<-subset(beetles_max, select = -c(dry_weight)) # first remove dry weight because they are all NA
+beetles_max_na<-na.omit(beetles_max_na) # then remove the rows with NA (haven't measured bodysize and wingsize yet)
+beetles_min_na<-subset(beetles_min, select = -c(dry_weight)) # first remove dry weight because they are all NA
+beetles_min_na<-na.omit(beetles_min_na) # then remove the rows with NA  (haven't measured bodysize and wingsize yet)
+
+lm_body <- lmer(actual_temp~bodysize+(1|species:humidity),beetles_max_na,na.action=na.omit)
+summary(lm_body)
+Anova(lmm) 
+step(lmm) # nothing is significant
+
+lmm <- lmer(actual_temp~bodysize+(1|species:humidity),beetles_max_na,na.action=na.omit)
+summary(lmm)
+Anova(lmm) 
+step(lmm) # nothing is significant
 
 # line plot for CTmax vs bodysize
 beetles_max_na %>%
@@ -173,62 +286,15 @@ beetles_max_na %>%
   facet_grid(humidity~species, scale = "free")+
   theme_classic()
 
-# CTmin
-lm_min <- lmer(actual_temp~wet_weight*humidity+(1|species),beetles_min) # TODO: still not enough data here to do bodysize or wingsize at different humidities let's wait
-summary(lm_min)
-Anova(lm_min) # all insignificant
-step(lm_min) # gets rid of everything
-pairs(emmeans(lm_min, "humidity")) # indeed, all insignificant
-
-# box plot for species 1 only
-beetles_min %>% filter(str_detect(species,'sp1')) %>%
+# line plot for CTmin vs wingsize
+beetles_min_na %>%
+  arrange(wingsize_a) %>%
   ggplot() +
-  aes(x = humidity, y = actual_temp, fill = humidity)+
-  geom_jitter(aes(color = humidity), size = 3, alpha = 0.8, width = 0.1) +
-  geom_boxplot(outlier.shape = NA, alpha = 0.3) + 
-  labs(y = "Critical thermal minimum (CTmin) (\u00B0C)", x = "Humidity (%RH)") +
-  ggtitle("Species 1 CTmin")+
-  theme_classic() +
-  theme(legend.position = "none") +
-  annotate("text", x = 1, y = 2, size=6, label = "a")+
-  annotate("text", x = 2, y = 2, size=6, label = "a")+ 
-  annotate("text", x = 3, y = 2, size=6, label = "a")
-
-# line plot for CTmin vs wet body weight
-beetles_min %>%
-  arrange(wet_weight) %>%
-  ggplot() +
-  aes(x=wet_weight,y=actual_temp, color=species)+
+  aes(x=wingsize,y=actual_temp, color=species)+
   geom_point()+
   geom_smooth(method="lm")+
-  labs(y = "Critical thermal minimum (CTmin) (\u00B0C)", x = "Wet body weight (g)") +  
-  ggtitle("CTmin vs Wet body weight by species and humidity treatment ")+
+  labs(y = "Critical thermal minimum (CTmin (\u00B0C)", x = expression(Wing~size~(mm^2)))+
+  ggtitle("CTmin vs Wing size by species and humidity treatment ")+
   scale_x_log10()+
   facet_grid(humidity~species, scale = "free")+
   theme_classic()
-
-# box plot combining CTmax and CTmin for species 1
-beetles %>% filter(str_detect(species,'sp1')) %>%
-  ggplot() +
-  aes(x = humidity, y = actual_temp, group = treatment, fill=humidity)+
-  geom_boxplot(outlier.shape = NA, alpha = 0.3) + 
-  labs(y = "Critical thermal minimum (CTmin) / Critical thermal maximum (CTmax) (\u00B0C)", x = "Humidity (%RH)") +
-  ggtitle("Species 1 CTmax and CTmin")+
-  theme_classic() +
-  scale_y_break(c(3, 32))+
-  annotate("text", x = 1, y = 40, size=6, label = "a")+
-  annotate("text", x = 2, y = 40, size=6, label = "b")+ 
-  annotate("text", x = 3, y = 40, size=6, label = "b")+
-  annotate("text", x = 1, y = 2, size=6, label = "a")+
-  annotate("text", x = 2, y = 2, size=6, label = "a")+ 
-  annotate("text", x = 3, y = 2, size=6, label = "a")
-
-####################
-## Hypothesis 1: subtropical vs tropical
-
-# Awaiting data
-
-####################
-## Hypothesis 3: rainforest vs rubber plantation
-
-# Awaiting data
