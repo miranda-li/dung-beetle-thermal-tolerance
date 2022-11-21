@@ -31,7 +31,6 @@ colnames(beetles_raw)
 
 ## Clean data
 beetles <- rename(beetles_raw,
-                  beetleID = 'number',
                   wet_weight = 'wet_body_weight(g)',
                   after_weight = 'after_body_weight(g)',
                   water_loss = 'water_loss(g)',
@@ -48,7 +47,7 @@ beetles <- rename(beetles_raw,
                   subfamily = 'Subfamily'
                   )
 
-beetles$beetleID<- as.factor(beetles$beetleID)
+beetles$ID<- as.factor(beetles$ID)
 beetles$site <- as.factor(beetles$site)
 beetles$species <- as.factor(beetles$species)
 beetles$site <- as.factor(beetles$site)
@@ -111,7 +110,6 @@ beetles %>%
   theme_classic()
 # TODO: maybe we should  transform water loss proportion
 
-
 ## Create CTmax and CTmin tibbles
 beetles_max <- beetles %>% filter(str_detect(metric,'CTmax'))
 beetles_min <- beetles %>% filter(str_detect(metric,'CTmin'))
@@ -163,7 +161,7 @@ humidity_colors <- c("aliceblue", "cadetblue2", "deepskyblue4")
 
 # CTmax
 
-lm_max <- lmer(actual_temp~water_loss_prop*humidity+(1|species),beetles_max)
+lm_max <- lmer(actual_temp~water_loss_prop*humidity+(1|species),beetles_max,na.action=na.omit)
 summary(lm_max)
 Anova(lm_max)   # TODO: I am still not sure what the difference is between Anova (from car package) and regular anova... need to look this up
 step(lm_max) # eliminated the interaction effect and water loss
@@ -173,7 +171,7 @@ summary(lm_max2)
 anova(lm_max2) 
 
 # post-hoc test (Tukey) to determine which pairs are significantly different 
-pairs(emmeans(lm_max2, "humidity")) # 30 vs 50 and 30 vs 90significant, 50 vs 90 (marginally!) not significant
+pairs(emmeans(lm_max2, "humidity")) # all significant when we consider all species
 
 # box plot for species 1 only
 beetles_max %>% filter(str_detect(species,'sp1')) %>%
@@ -186,15 +184,26 @@ beetles_max %>% filter(str_detect(species,'sp1')) %>%
   theme_classic() +
   theme(legend.position = "none") +
   scale_fill_manual(values=humidity_colors)+
-  stat_compare_means()+
-  stat_compare_means(method="anova", aes(group = humidity))
-
   annotate("text", x = 1, y = 40, size=6, label = "a")+
   annotate("text", x = 2, y = 40, size=6, label = "b")+ 
   annotate("text", x = 3, y = 40, size=6, label = "b")
 
+# box plot for all species
+beetles_max %>%
+  ggplot() +
+  aes(x = humidity, y = actual_temp, fill = humidity)+
+  geom_boxplot(outlier.shape = NA, alpha = 0.8) + 
+  labs(y = "Critical thermal maximum (CTmax) (\u00B0C)", x = "Humidity (%RH)") +
+  ggtitle("CTmax by humidity")+
+  theme_classic() +
+  theme(legend.position = "none") +
+  scale_fill_manual(values=humidity_colors)+
+  facet_wrap(~ species, scale = "free")
+
+# need to do some kind of box plot for many different species
+
 # CTmin
-lm_min <- lmer(actual_temp~water_loss_prop*humidity+(1|species),beetles_min) # water loss for CTmin does not make sense...most of them are negative anyways. Ignore
+lm_min <- lmer(actual_temp~water_loss_prop*humidity+(1|species),beetles_min, na.action=na.omit) # water loss for CTmin does not make sense...most of them are negative anyways. Ignore
 summary(lm_min)
 Anova(lm_min) # all insignificant
 step(lm_min) # gets rid of everything
@@ -263,15 +272,17 @@ beetles_max_na<-na.omit(beetles_max_na) # then remove the rows with NA (haven't 
 beetles_min_na<-subset(beetles_min, select = -c(dry_weight)) # first remove dry weight because they are all NA
 beetles_min_na<-na.omit(beetles_min_na) # then remove the rows with NA  (haven't measured bodysize and wingsize yet)
 
+# CTmax and body size
 lm_body <- lmer(actual_temp~bodysize+(1|species:humidity),beetles_max_na,na.action=na.omit)
 summary(lm_body)
-Anova(lmm) 
-step(lmm) # nothing is significant
+Anova(lm_body) 
+step(lm) # nothing is significant
 
-lmm <- lmer(actual_temp~bodysize+(1|species:humidity),beetles_max_na,na.action=na.omit)
-summary(lmm)
-Anova(lmm) 
-step(lmm) # nothing is significant
+# CTmin and wingsize
+lm_wing <- lmer(actual_temp~wingsize+(1|species:humidity),beetles_min_na,na.action=na.omit)
+summary(lm_wing)
+Anova(lm_wing) 
+step(lm_wing) # nothing is significant
 
 # line plot for CTmax vs bodysize
 beetles_max_na %>%
