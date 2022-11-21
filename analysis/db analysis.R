@@ -134,19 +134,35 @@ beetles_min %>%
 # shades of blue that we can use for our three different humidity levels
 humidity_colors <- c("aliceblue", "cadetblue2", "deepskyblue4")
 
+# p-value comparisons for ggplot
+humidity_comparisons <- list( c("30", "90"), c("30", "50"), c("50", "90") )
+
+
 ############################################
 # ANALYSIS
 ############################################
 
 ####################
-## Question 1: x
+## Question 1: 
 
 # Hypothesis 1: Beetles from the subtropics have lower CTmax and CTmin, but larger thermal tolerance range, because of higher temperature range in subtropics.
 
 # Analysis method: linear model: temp ~ site, with species and humidity as random effects
 
-# Awaiting data
+lm_site <- lmer(actual_temp~site+(1|species:humidity),beetles_max,na.action=na.omit)
+summary(lm_site)
+Anova(lm_site) 
+step(lm_site) 
 
+beetles_max %>%
+  ggplot() +
+  aes(x = site, y = actual_temp, fill = humidity)+
+  geom_boxplot(outlier.shape = NA, alpha = 0.8) + 
+  labs(y = "Critical thermal maximum (CTmax) (\u00B0C)", x = element_blank()) +
+  ggtitle("CTmax by site (all species)")+
+  theme_classic() +
+  scale_fill_manual(values=humidity_colors)
+#  stat_compare_means(method = "anova", comparisons = humidity_comparisons)
 
 ####################
 ## Question 2: How do dung beetle thermal tolerances respond under different humidity gradients?
@@ -187,6 +203,7 @@ beetles_max %>% filter(str_detect(species,'sp1')) %>%
   annotate("text", x = 1, y = 40, size=6, label = "a")+
   annotate("text", x = 2, y = 40, size=6, label = "b")+ 
   annotate("text", x = 3, y = 40, size=6, label = "b")
+#  stat_compare_means(method = "anova", comparisons = humidity_comparisons)
 
 # box plot for all species
 beetles_max %>%
@@ -198,6 +215,7 @@ beetles_max %>%
   theme_classic() +
   theme(legend.position = "none") +
   scale_fill_manual(values=humidity_colors)+
+  #stat_compare_means(comparisons = humidity_comparisons)+ # Add pairwise comparisons p-value
   facet_wrap(~ species, scale = "free")
 
 # need to do some kind of box plot for many different species
