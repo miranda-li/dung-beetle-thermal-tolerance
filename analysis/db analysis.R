@@ -56,6 +56,10 @@ beetles$humidity <- as.factor(beetles$humidity)
 beetles$treatment <- as.factor(beetles$treatment)
 beetles$subfamily <- as.factor(beetles$subfamily)
 
+# rename "rainforest" to "tropics"
+levels(beetles$site)
+levels(beetles$site) <- c("tropics", "subtropics")
+
 # Calculate traits
 # TODO: discuss with team how to calculate these traits! For now I'm just using the equation for an ellipse
 
@@ -163,6 +167,7 @@ beetles_max %>%
   theme_classic() +
   scale_fill_manual(values=humidity_colors)
 #  stat_compare_means(method = "anova", comparisons = humidity_comparisons)
+
 
 ####################
 ## Question 2: How do dung beetle thermal tolerances respond under different humidity gradients?
